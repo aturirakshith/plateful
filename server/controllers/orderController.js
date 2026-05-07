@@ -1,16 +1,23 @@
-const Razorpay = require('razorpay')
 const crypto = require('crypto')
 const { PrismaClient } = require('@prisma/client')
 
 const prisma = new PrismaClient()
 
-const razorpay = new Razorpay({
-  key_id: process.env.RAZORPAY_KEY_ID,
-  key_secret: process.env.RAZORPAY_KEY_SECRET,
-})
+/** True when RAZORPAY keys are not yet configured — skips real payment calls */
+const MOCK_PAYMENT = process.env.MOCK_PAYMENT === 'true'
+
+/** Lazily initialise Razorpay only when real keys are present */
+function getRazorpay() {
+  const Razorpay = require('razorpay')
+  return new Razorpay({
+    key_id: process.env.RAZORPAY_KEY_ID,
+    key_secret: process.env.RAZORPAY_KEY_SECRET,
+  })
+}
 
 /**
  * Creates a new order from the user's cart and a corresponding Razorpay order.
+ * In MOCK_PAYMENT mode, skips Razorpay and returns a fake order ID.
  * Cart is NOT cleared here — it is cleared after successful payment verification.
  * @param {import('express').Request} req - body: { address }
  * @param {import('express').Response} res
@@ -21,7 +28,7 @@ async function createOrder(req, res, next) {
     if (!address) return res.status(400).json({ message: 'address is required' })
 
     const cart = await prisma.cart.findFirst({
-      where: req.user.id ? { userId: req.user.id } : { sessionId: req.user.sessionId },
+      where: req.user.role !== 'GUEST' ? { userId: req.user.id } : { sessionId: req.user.sessionId },
       include: { items: { include: { menuItem: true } } },
     })
 
@@ -31,11 +38,16 @@ async function createOrder(req, res, next) {
 
     const totalAmount = cart.items.reduce((sum, i) => sum + i.menuItem.price * i.quantity, 0)
 
-    const razorpayOrder = await razorpay.orders.create({
-      amount: Math.round(totalAmount * 100),
-      currency: 'INR',
-      receipt: `plateful_${Date.now()}`,
-    })
+    let razorpayOrderId = `mock_${Date.now()}`
+    let amount = Math.round(totalAmount * 100)
+    let currency = 'INR'
+
+    if (!MOCK_PAYMENT) {
+      const rzpOrder = await getRazorpay().orders.create({ amount, currency, receipt: `plateful_${Date.now()}` })
+      razorpayOrderId = rzpOrder.id
+      amount = rzpOrder.amount
+      currency = rzpOrder.currency
+    }
 
     const order = await prisma.order.create({
       data: {
@@ -43,7 +55,7 @@ async function createOrder(req, res, next) {
         sessionId: req.user.role === 'GUEST' ? req.user.sessionId : undefined,
         totalAmount,
         address,
-        razorpayOrderId: razorpayOrder.id,
+        razorpayOrderId,
         items: {
           create: cart.items.map((i) => ({
             menuItemId: i.menuItemId,
@@ -55,7 +67,7 @@ async function createOrder(req, res, next) {
       include: { items: { include: { menuItem: true } } },
     })
 
-    res.status(201).json({ order, razorpayOrderId: razorpayOrder.id, amount: razorpayOrder.amount, currency: razorpayOrder.currency })
+    res.status(201).json({ order, razorpayOrderId, amount, currency, mockPayment: MOCK_PAYMENT })
   } catch (err) {
     next(err)
   }
@@ -63,8 +75,8 @@ async function createOrder(req, res, next) {
 
 /**
  * Verifies the Razorpay payment HMAC signature.
+ * In MOCK_PAYMENT mode, skips verification and auto-confirms the order.
  * On success: marks order CONFIRMED and clears the cart.
- * On failure: marks order FAILED.
  * @param {import('express').Request} req - body: { razorpayOrderId, razorpayPaymentId, razorpaySignature, orderId }
  * @param {import('express').Response} res
  */
@@ -72,19 +84,21 @@ async function verifyPayment(req, res, next) {
   try {
     const { razorpayOrderId, razorpayPaymentId, razorpaySignature, orderId } = req.body
 
-    const expectedSignature = crypto
-      .createHmac('sha256', process.env.RAZORPAY_KEY_SECRET)
-      .update(`${razorpayOrderId}|${razorpayPaymentId}`)
-      .digest('hex')
+    if (!MOCK_PAYMENT) {
+      const expectedSignature = crypto
+        .createHmac('sha256', process.env.RAZORPAY_KEY_SECRET)
+        .update(`${razorpayOrderId}|${razorpayPaymentId}`)
+        .digest('hex')
 
-    if (expectedSignature !== razorpaySignature) {
-      await prisma.order.update({ where: { id: orderId }, data: { status: 'FAILED' } })
-      return res.status(400).json({ message: 'Payment verification failed' })
+      if (expectedSignature !== razorpaySignature) {
+        await prisma.order.update({ where: { id: orderId }, data: { status: 'FAILED' } })
+        return res.status(400).json({ message: 'Payment verification failed' })
+      }
     }
 
     const order = await prisma.order.update({
       where: { id: orderId },
-      data: { status: 'CONFIRMED', paymentId: razorpayPaymentId },
+      data: { status: 'CONFIRMED', paymentId: razorpayPaymentId || `mock_pay_${Date.now()}` },
     })
 
     await prisma.cartItem.deleteMany({

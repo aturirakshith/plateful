@@ -31,6 +31,15 @@ export default function CheckoutPage() {
     try {
       const { data } = await createOrder(address)
 
+      if (data.mockPayment) {
+        // Mock mode: no Razorpay modal, auto-verify immediately
+        await verifyPayment({ razorpayOrderId: data.razorpayOrderId, razorpayPaymentId: '', razorpaySignature: '', orderId: data.order.id })
+        await refreshCart()
+        toast.success('Order placed! (mock payment)')
+        navigate(`/orders/${data.order.id}`)
+        return
+      }
+
       const options = {
         key: import.meta.env.VITE_RAZORPAY_KEY_ID,
         amount: data.amount,

@@ -25,6 +25,7 @@ export interface CreateOrderResponse {
   razorpayOrderId: string
   amount: number
   currency: string
+  mockPayment?: boolean
 }
 
 /** Creates an order from the current cart and returns a Razorpay order to initiate payment */
