@@ -17,9 +17,10 @@ const CartContext = createContext<CartContextValue | null>(null)
 /**
  * Provides cart state and mutation actions to the component tree.
  * Fetches the cart whenever the authenticated user changes.
+ * Auto-creates a guest session if an unauthenticated user tries to add an item.
  */
 export function CartProvider({ children }: { children: React.ReactNode }) {
-  const { user } = useAuth()
+  const { user, continueAsGuest } = useAuth()
   const [cart, setCart] = useState<Cart | null>(null)
   const [loading, setLoading] = useState(false)
 
@@ -36,8 +37,13 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => { refreshCart() }, [refreshCart])
 
-  /** Adds a menu item to the cart and refreshes state */
+  /**
+   * Adds a menu item to the cart.
+   * If the user is not authenticated, silently creates a guest session first
+   * so they can add items without being forced to log in.
+   */
   async function addItem(menuItemId: string, quantity = 1) {
+    if (!user) await continueAsGuest()
     const res = await addToCart(menuItemId, quantity)
     setCart(res.data)
   }
