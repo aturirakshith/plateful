@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { io } from 'socket.io-client'
-import { getOrder, type Order, type OrderStatus } from '../api/orders'
+import { getOrder, type Order, type OrderStatus as OrderStatusType } from '../api/orders'
 import OrderStatus from '../components/OrderStatus'
 import toast from 'react-hot-toast'
 
@@ -25,7 +25,7 @@ export default function OrderTrackPage() {
     const socket = io(import.meta.env.VITE_API_URL || 'http://localhost:4000')
     socket.emit('join:order', id)
 
-    socket.on('order:status_update', ({ orderId, status }: { orderId: string; status: OrderStatus }) => {
+    socket.on('order:status_update', ({ orderId, status }: { orderId: string; status: OrderStatusType }) => {
       if (orderId === id) {
         setOrder((prev) => prev ? { ...prev, status } : prev)
         toast(`Order status: ${status}`, { icon: '📦' })
