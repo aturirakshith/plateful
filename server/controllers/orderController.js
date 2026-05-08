@@ -28,7 +28,7 @@ async function createOrder(req, res, next) {
     if (!address) return res.status(400).json({ message: 'address is required' })
 
     const cart = await prisma.cart.findFirst({
-      where: req.user.role !== 'GUEST' ? { userId: req.user.id } : { sessionId: req.user.sessionId },
+      where: { userId: req.user.id },
       include: { items: { include: { menuItem: true } } },
     })
 
@@ -51,8 +51,7 @@ async function createOrder(req, res, next) {
 
     const order = await prisma.order.create({
       data: {
-        userId: req.user.role !== 'GUEST' ? req.user.id : undefined,
-        sessionId: req.user.role === 'GUEST' ? req.user.sessionId : undefined,
+        userId: req.user.id,
         totalAmount,
         address,
         razorpayOrderId,
@@ -102,9 +101,7 @@ async function verifyPayment(req, res, next) {
     })
 
     await prisma.cartItem.deleteMany({
-      where: {
-        cart: req.user.role !== 'GUEST' ? { userId: req.user.id } : { sessionId: req.user.sessionId },
-      },
+      where: { cart: { userId: req.user.id } },
     })
 
     res.json({ message: 'Payment verified', order })
@@ -145,7 +142,7 @@ async function getOrder(req, res, next) {
 async function getMyOrders(req, res, next) {
   try {
     const orders = await prisma.order.findMany({
-      where: req.user.role !== 'GUEST' ? { userId: req.user.id } : { sessionId: req.user.sessionId },
+      where: { userId: req.user.id },
       include: { items: { include: { menuItem: true } } },
       orderBy: { createdAt: 'desc' },
     })
