@@ -18,12 +18,16 @@ declare global {
 export default function CheckoutPage() {
   const [address, setAddress] = useState('')
   const [loading, setLoading] = useState(false)
-  const { cart, refreshCart } = useCart()
+  const { cart, loading: cartLoading, refreshCart } = useCart()
   const navigate = useNavigate()
 
   const total = cart?.items.reduce((sum, i) => sum + i.menuItem.price * i.quantity, 0) ?? 0
 
-  if (!cart || cart.items.length === 0) {
+  if (cartLoading || !cart) {
+    return <div className="text-center py-20 text-gray-400">Loading your cart...</div>
+  }
+
+  if (cart.items.length === 0) {
     return (
       <div className="min-h-[calc(100vh-64px)] flex flex-col items-center justify-center text-center px-4">
         <div className="text-5xl mb-4">🛒</div>
