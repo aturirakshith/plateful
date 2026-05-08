@@ -5,6 +5,7 @@ import { AuthProvider, useAuth } from './context/AuthContext'
 import { CartProvider } from './context/CartContext'
 import Navbar from './components/Navbar'
 import CartDrawer from './components/CartDrawer'
+import WelcomeModal from './components/WelcomeModal'
 import HomePage from './pages/HomePage'
 import LoginPage from './pages/LoginPage'
 import MenuPage from './pages/MenuPage'
@@ -25,6 +26,7 @@ function Layout() {
 
   return (
     <>
+      <WelcomeModal />
       <Navbar onCartOpen={() => setCartOpen(true)} />
       <CartDrawer open={cartOpen} onClose={() => setCartOpen(false)} />
       <Routes>

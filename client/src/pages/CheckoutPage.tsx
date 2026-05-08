@@ -23,6 +23,17 @@ export default function CheckoutPage() {
 
   const total = cart?.items.reduce((sum, i) => sum + i.menuItem.price * i.quantity, 0) ?? 0
 
+  if (!cart || cart.items.length === 0) {
+    return (
+      <div className="min-h-[calc(100vh-64px)] flex flex-col items-center justify-center text-center px-4">
+        <div className="text-5xl mb-4">🛒</div>
+        <h2 className="text-xl font-semibold text-gray-700 mb-2">Your cart is empty</h2>
+        <p className="text-gray-400 mb-6">Add some items from the menu before checking out.</p>
+        <a href="/menu" className="bg-orange-500 text-white px-6 py-2.5 rounded-full font-semibold hover:bg-orange-600 transition">Browse Menu</a>
+      </div>
+    )
+  }
+
   async function handleCheckout(e: React.FormEvent) {
     e.preventDefault()
     if (!address.trim()) return toast.error('Please enter a delivery address')

@@ -15,9 +15,9 @@ export const register = (name: string, email: string, password: string) =>
 export const login = (email: string, password: string) =>
   api.post<{ token: string; user: User }>('/api/auth/login', { email, password })
 
-/** Creates a guest session and returns a JWT token and sessionId */
+/** Creates a guest session and returns a JWT token, sessionId, and user profile */
 export const loginAsGuest = () =>
-  api.post<{ token: string; sessionId: string }>('/api/auth/guest')
+  api.post<{ token: string; sessionId: string; user: User }>('/api/auth/guest')
 
 /** Returns the currently authenticated user's profile */
 export const getMe = () => api.get<User>('/api/auth/me')

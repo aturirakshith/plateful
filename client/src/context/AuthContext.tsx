@@ -55,7 +55,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const res = await loginAsGuest()
     localStorage.setItem('plateful_token', res.data.token)
     localStorage.setItem('plateful_guest_session', res.data.sessionId)
-    setUser({ id: '', name: 'Guest', email: '', role: 'GUEST' })
+    setUser(res.data.user)
   }
 
   function logout() {

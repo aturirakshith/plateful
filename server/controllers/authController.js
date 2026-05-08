@@ -79,7 +79,7 @@ async function guest(req, res, next) {
       data: { name: 'Guest', email: `guest_${sessionId}@plateful.local`, role: 'GUEST', sessionId },
     })
     const token = signToken({ id: user.id, role: user.role, sessionId })
-    res.status(201).json({ token, sessionId })
+    res.status(201).json({ token, sessionId, user: { id: user.id, name: 'Guest', email: '', role: 'GUEST' } })
   } catch (err) {
     next(err)
   }
